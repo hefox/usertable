@@ -1,0 +1,79 @@
+<?php
+/*
+	implementation of hook_user
+	$op What kind of action is being performed. Possible values (in alphabetical order):
+
+    * "after_update": The user object has been updated and changed. Use this if (probably along with 'insert') if you want to reuse some information from the user object.
+    * "categories": A set of user information categories is requested.
+    * "delete": The user account is being deleted. The module should remove its custom additions to the user object from the database.
+    * "form": The user account edit form is about to be displayed. The module should present the form elements it wishes to inject into the form.
+    * "insert": The user account is being added. The module should save its custom additions to the user object into the database and set the saved fields to NULL in $edit.
+    * "load": The user account is being loaded. The module may respond to this and insert additional information into the user object.
+    * "login": The user just logged in.
+    * "logout": The user just logged out.
+    * "register": The user account registration form is about to be displayed. The module should present the form elements it wishes to inject into the form.
+    * "submit": Modify the account before it gets saved.
+    * "update": The user account is being changed. The module should save its custom additions to the user object into the database and set the saved fields to NULL in $edit.
+    * "validate": The user account is about to be modified. The module should validate its custom additions to the user object, registering errors as necessary.
+    * "view": The user's account information is being displayed. The module should format its custom additions for display, and add them to the $account->content array. 
+
+&$edit The array of form values submitted by the user.
+
+&$account The user object on which the operation is being performed.
+
+$category The active category of user information being edited.
+*/
+function usertable_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'delete':
+        db_query("DELETE from {usertable} where uid =%d",$account->uid);
+        break;
+    case 'insert':
+    case 'update':
+        $fields = module_invoke_all('usertable_fields') ;
+        foreach($fields as $field) {
+           if (isset($edit[$field])) {
+              usertable_set($account,$field, $edit[$field]); 
+              unset($edit[$field]);  
+           }
+        }
+    break;
+    case 'load':
+        usertable_get($account);
+    break;
+  }
+}
+
+function usertable_get(&$account,$field=null) {
+    if (is_object($account)) $uid = $account->uid;
+    else $uid = $account; 
+    if ($field) {
+       $result= db_result(db_query("SELECT %s from {usertable} where uid=%d",array($field,$uid)));
+        if (!$result) return;
+        $final =   unserialize($result);
+        if (is_object($account)) $account->$field = $final;
+    }
+    else {
+        $results = db_fetch_array(db_query("SELECT * from {usertable} where uid=%d",$uid));
+        if (!$results) return;
+        foreach($results as $key=>$value) {
+            if ($key == 'uid') continue; 
+            $final->$key = unserialize($value);
+            if (is_object($account)) $account->$key = $final->$key;
+        }
+        
+    }
+    return $final; 
+}
+function usertable_set(&$account,$field,$value) {
+    $serialized_value = serialize($value);
+    if (is_object($account)) $uid = $account->uid;
+    else $uid = $account; 
+    if (!db_result(db_query("SELECT uid from {usertable} where uid=%d",$uid))) db_query("INSERT into {usertable} (uid) VALUES(%d)",$uid); 
+    db_query("UPDATE {usertable} SET %s='%s' where uid=%d",array($field,$serialized_value,$uid));
+    if (is_object($account)) $account->$field = $value; 
+}
+
+function usertable_sets(&$account,$field,$value) {
+    foreach($field as $key => $val) usertable_set(&$account,$key,$val);
+}

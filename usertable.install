@@ -1,0 +1,30 @@
+<?php
+
+
+function usertable_install() {
+    drupal_install_schema('usertable') ;
+    db_query("UPDATE {system} SET weight=-100 where name='usertable'");
+    db_query('INSERT into {usertable} (uid) SELECT uid FROM (SELECT u.uid FROM {users} u left join {usertable} ut on ut.uid = u.uid WHERE ut.uid IS NULL) as us');
+}
+function usertable_uninstall() {
+    drupal_uninstall_schema('usertable') ;
+}
+function usertable_schema() {
+
+
+  $schema['usertable'] = array(
+    'description' => 'Stores user data.',
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique user ID.',
+      ),
+      ),
+      'primary key' => array('uid'),
+  );
+
+  return $schema;
+}
+?>

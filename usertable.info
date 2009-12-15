@@ -1,0 +1,4 @@
+name = User table
+description = Adds a table and functions to load on userload
+package = Other
+core = 6.x
